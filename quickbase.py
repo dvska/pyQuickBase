@@ -8,7 +8,7 @@ import os
 try:
     from lxml import etree
 except ImportError:
-    print "You must install lxml and libxml2 packages before using pyQuickBase"
+    print("You must install lxml and libxml2 packages before using pyQuickBase")
 
 import requests
 import chardet
@@ -83,15 +83,15 @@ class Client(object):
         def add_sub_element(field, value):
             if isinstance(value, tuple):
                 attrib, value = value
-                attrib = dict((k, str(v)) for k, v in attrib.iteritems())
+                attrib = dict((k, str(v)) for k, v in attrib.items())
             else:
                 attrib = {}
             sub_element = etree.SubElement(request, field, **attrib)
-            if not isinstance(value, basestring):
+            if not isinstance(value, str):
                 value = str(value)
             sub_element.text = value
 
-        for field, values in request_fields.iteritems():
+        for field, values in request_fields.items():
             if not isinstance(values, list):
                 values = [values]
             for value in values:
@@ -140,7 +140,7 @@ class Client(object):
                 rows.append(table)
         elif fields:
             for f in fields:
-                field = {x[0]: x[1] for x in f.items()}
+                field = {x[0]: x[1] for x in list(f.items())}
                 for child in f.iterchildren():
                     tag = child.tag
                     if tag == 'choices':
@@ -216,13 +216,10 @@ class Client(object):
             'Content-Type': 'application/xml',
             'QUICKBASE-ACTION': 'API_' + action,
         }
-        response = ""
+        response = b""
         request = requests.post(url, data, headers=headers, stream=True)
         if request.status_code == 200:
             for chunk in request.iter_content(2048):
-                encode = chardet.detect(chunk)['encoding']
-                if encode != 'utf-8':
-                    chunk = chunk.decode(encode, 'replace').encode('utf-8')
                 response += chunk
 
         try:
@@ -334,7 +331,7 @@ class Client(object):
         request['rid'] = rid
         attr = 'name' if named else 'fid'
         request['field'] = []
-        for field, value in fields.iteritems():
+        for field, value in fields.items():
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         response = self.request('EditRecord', database or self.database, request,
@@ -350,7 +347,7 @@ class Client(object):
             request['ignoreError'] = '1'
         attr = 'name' if named else 'fid'
         request['field'] = []
-        for field, value in fields.iteritems():
+        for field, value in fields.items():
             request_field = ({attr: to_xml_name(field) if named else field}, value)
             request['field'].append(request_field)
         if uploads:
