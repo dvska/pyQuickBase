@@ -221,6 +221,8 @@ class Client(object):
         if request.status_code == 200:
             for chunk in request.iter_content(2048):
                 response += chunk
+        encode = chardet.detect(response)['encoding']
+        response = response.decode(encode, 'replace').encode('utf-8')
 
         try:
             parsed = etree.fromstring(response)
