@@ -20,7 +20,7 @@ setup(
                  ],
     install_requires=[
         'lxml==3.2.1',
-        'requests>=1.1.0,<2.0',
+        'requests==2.12.4',
         'chardet>= 2.1.1',
     ],
 )
