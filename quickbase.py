@@ -12,6 +12,7 @@ except ImportError:
 
 import requests
 import chardet
+from functools import wraps
 
 
 class Error(Exception):
@@ -70,11 +71,11 @@ class Client(object):
         value is a list of values or 2-tuples the output will contain multiple entries.
 
         >>> Client._build_request(a=1, b=({}, 'c'), d=({'f': 1}, 'e'))
-        '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<qdbapi><a>1</a><b>c</b><d f="1">e</d></qdbapi>'
+        b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<qdbapi><a>1</a><b>c</b><d f="1">e</d></qdbapi>'
         >>> Client._build_request(f=['a', 'b'])
-        "<?xml version='1.0' encoding='UTF-8'?>\n<qdbapi><f>a</f><f>b</f></qdbapi>"
+        b"<?xml version='1.0' encoding='UTF-8'?>\n<qdbapi><f>a</f><f>b</f></qdbapi>"
         >>> Client._build_request(f=[({'n': 1}, 't1'), ({'n': 2}, 't2')])
-        '<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<qdbapi><f n="1">t1</f><f n="2">t2</f></qdbapi>'
+        b'<?xml version=\'1.0\' encoding=\'UTF-8\'?>\n<qdbapi><f n="1">t1</f><f n="2">t2</f></qdbapi>'
 
         """
         request = etree.Element('qdbapi')
@@ -192,6 +193,24 @@ class Client(object):
         elif ticket is not None:
             self.ticket = ticket
 
+    def _reauthenticate(func):
+        """
+        Decorator that checks output of wrapped method and if output is ResponseError with error code '4'
+        make authenticate request and re-call wrapped method
+        """
+        @wraps(func)
+        def wrapped(inst, *args, **kwargs):
+            try:
+                return func(inst, *args, **kwargs)
+            except ResponseError as e:
+                if e.code == "4":
+                    # it seems that auth token expired we need to authenticate again
+                    inst.authenticate()
+                    # then re-execude last function
+                    return func(inst, *args, **kwargs)
+                raise
+        return wrapped
+
     def request(self, action, database, request, required=None, ticket=True,
                 apptoken=True):
         """Do a QuickBase request and return the parsed XML response. Raises appropriate
@@ -234,6 +253,7 @@ class Client(object):
         error_code = parsed.findtext('errcode')
         if error_code is None:
             raise ResponseError(-4, '"errcode" not in response', response=response)
+
         if error_code != '0':
             error_text = parsed.find('errtext')
             error_text = error_text.text if error_text is not None else '[no error text]'
@@ -279,6 +299,7 @@ class Client(object):
             request['key'] = key
         return self.request('DeleteRecord', database or self.database, request, required=['rid'])
 
+    @_reauthenticate
     def do_query(self, query=None, qid=None, qname=None, columns=None, sort=None,
                  structured=True, num=None, only_new=False, skip=None, ascending=True,
                  include_rids=False, database=None):
@@ -318,12 +339,14 @@ class Client(object):
         response = self.request('DoQuery', database or self.database, request)
         return self._parse_records(response)
 
+    @_reauthenticate
     def do_query_count(self, query, database=None):
         request = {}
         request['query'] = query
         response = self.request('DoQueryCount', database or self.database, request, required=['numMatches'])
         return int(response['numMatches'])
 
+    @_reauthenticate
     def edit_record(self, rid, fields, named=False, database=None):
         """Update fields on the given record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the number of
@@ -340,6 +363,7 @@ class Client(object):
                                 required=['num_fields_changed', 'rid'])
         return response
 
+    @_reauthenticate
     def add_record(self, fields, named=False, database=None, ignore_error=True, uploads=None):
         """Add new record. "fields" is a dict of name:value pairs
         (if named is True) or fid:value pairs (if named is False). Return the new records RID
@@ -389,6 +413,7 @@ class Client(object):
         response = self.request('ImportFromCSV', database or self.database, request, required)
         return response
 
+    @_reauthenticate
     def get_db_page(self, page, named=True, database=None):
         #Get DB page from a qbase app
         request = {}
@@ -399,12 +424,14 @@ class Client(object):
         response = self.request('GetDBPage', database or self.database, request)
         return self._parse_db_page(response)
 
+    @_reauthenticate
     def get_schema(self, database=None, required=None):
         """Perform query and return results (list of dicts)."""
         request = {}
         response = self.request('GetSchema', database or self.database, request, required=required)
         return self._parse_schema(response)
 
+    @_reauthenticate
     def granted_dbs(self, adminOnly=0, excludeparents=0, includeancestors=0, withembeddedtables=0, database='main'):
         """Perform query and return results (list of dicts)."""
         request = {}
@@ -420,11 +447,13 @@ class Client(object):
         response = self.request('GrantedDBs', database or self.database, request)
         return response
 
+    @_reauthenticate
     def list_db_pages(self, database=None):
         request = {}
         response = self.request('ListDBpages', database or self.database, request)
         return self._parse_list_pages(response)
 
+    @_reauthenticate
     def add_replace_db_page(self, pagebody, pagename=None, pageid=None, pagetype=1, database=None):
         """Add replace dbpage - required pagebody, database, pageId(replace) or pageName(add)"""
         request = {}
