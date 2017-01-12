@@ -386,6 +386,7 @@ class Client(object):
         response = self.request('AddRecord', database or self.database, request, required=['rid'])
         return int(response['rid'])
 
+    @_reauthenticate
     def import_from_csv(self, records_csv, clist, clist_output=None, skipfirst=False, database=None, required=None, msInUTC=True):
 
         """
