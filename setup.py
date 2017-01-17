@@ -19,8 +19,8 @@ setup(
                  'Environment :: Web Environment'
                  ],
     install_requires=[
-        'lxml==3.2.1',
-        'requests==2.12.4',
-        'chardet>= 2.1.1',
+        'lxml>=3.2.1',
+        'requests>=2.12.4',
+        'chardet>=2.1.1',
     ],
 )
